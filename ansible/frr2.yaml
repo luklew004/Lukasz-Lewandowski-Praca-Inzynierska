@@ -1,0 +1,108 @@
+---
+- name: Install and configure FRR with GRE + OSPF
+  hosts: ec2servers
+  become: yes
+
+  vars:
+    frr_daemons:
+      zebra: "yes"
+      ospfd: "yes"
+      bgpd: "no"
+      isisd: "no"
+      ripd: "no"
+      ripngd: "no"
+      ospf6d: "no"
+      nhrpd: "no"
+      eigrpd: "no"
+      babeld: "no"
+      sharpd: "no"
+      staticd: "yes"
+
+  tasks:
+
+  - name: Update apt cache
+    apt:
+      update_cache: yes
+      cache_valid_time: 3600
+
+  - name: Install dependencies
+    apt:
+      name:
+        - curl
+        - gnupg
+        - lsb-release
+      state: present
+
+  - name: Add FRR GPG key
+    apt_key:
+      url: https://deb.frrouting.org/frr/keys.asc
+      state: present
+
+  - name: Add FRR repository
+    apt_repository:
+      repo: "deb https://deb.frrouting.org/frr {{ ansible_distribution_release }} frr-stable"
+      state: present
+      filename: frr
+
+  - name: Update apt cache after adding FRR repo
+    apt:
+      update_cache: yes
+
+  - name: Install FRR
+    apt:
+      name: frr
+      state: present
+
+  - name: Enable FRR daemons
+    copy:
+      dest: /etc/frr/daemons
+      content: |
+        zebra={{ frr_daemons.zebra }}
+        bgpd={{ frr_daemons.bgpd }}
+        ospfd={{ frr_daemons.ospfd }}
+        ospf6d={{ frr_daemons.ospf6d }}
+        ripd={{ frr_daemons.ripd }}
+        ripngd={{ frr_daemons.ripngd }}
+        isisd={{ frr_daemons.isisd }}
+        babeld={{ frr_daemons.babeld }}
+        sharpd={{ frr_daemons.sharpd }}
+        staticd={{ frr_daemons.staticd }}
+      owner: frr
+      group: frr
+      mode: '0644'
+    notify: Restart FRR
+
+  - name: Generate FRR config with OSPF
+    copy:
+      dest: /etc/frr/frr.conf
+      owner: frr
+      group: frr
+      mode: '0640'
+      content: |
+        frr version 9
+        service integrated-vtysh-config
+        !
+        router ospf
+        network 10.10.10.0/30 area 0
+        {% for net in local_networks.split(',') %}
+        network {{ net }} area 0
+        {% endfor %}
+        !
+        interface gre1
+         ip ospf network point-to-point
+        !
+        line vty
+        !
+    notify: Restart FRR
+
+  - name: Start and enable FRR
+    systemd:
+      name: frr
+      enabled: yes
+      state: started
+
+  handlers:
+    - name: Restart FRR
+      systemd:
+        name: frr
+        state: restarted

@@ -1,0 +1,29 @@
+network:
+  version: 2
+  ethernets:
+{% for interface in ansible_interfaces | select('match', '^ens') %}
+    {{ interface }}:
+{% set iface = hostvars[inventory_hostname]['ansible_' + interface] %}
+      match:
+        macaddress: "{{ iface.macaddress }}"
+      set-name: "{{ interface }}"
+      dhcp4: true
+
+{% if interface != ansible_default_ipv4.interface %}
+      dhcp4-overrides:
+        use-routes: false
+{% endif %}
+
+      dhcp6: false
+{% endfor %}
+
+  tunnels:
+    gre1:
+      mode: gre
+{% set other_host = (groups['ec2servers'] | difference([inventory_hostname]))[0] %}
+{% set local_ipv4 = hostvars[inventory_hostname].ansible_default_ipv4.address %}
+{% set remote_ipv4 = hostvars[other_host].ansible_default_ipv4.address %}
+      local: "{{ local_ipv4 }}"
+      remote: "{{ remote_ipv4 }}"
+      addresses:
+        - "{{ hostvars[inventory_hostname].gre_peer }}/30"

@@ -1,0 +1,13 @@
+network:
+{% set interface = ansible_interfaces | select('match', '^ens') | first %}
+  version: 2
+  ethernets:
+    {{ interface }}:
+{% set iface = hostvars[inventory_hostname]['ansible_' + interface] %}
+      match:
+        macaddress: "{{ iface.macaddress }}"
+      addresses:
+        - {{ iface.ipv4.address }}/{{ iface.ipv4.prefix }}
+      routes:
+        - to: 0.0.0.0/0
+          via: {{ gateway }}

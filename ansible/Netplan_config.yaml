@@ -1,0 +1,27 @@
+- name: Netplan config
+  hosts: ec2servers
+  tasks:
+
+  - name: set ubuntu password for debug purposes
+    ansible.builtin.user:
+      name: ubuntu
+      password: qwerty12
+    become: true
+
+  - name: Configuring Netplan
+    template:
+      src: templates/netplan.j2
+      dest: "/etc/netplan/50-cloud-init.yaml"
+      mode: '0600'
+    become: true
+
+  - name: Apply netplan configuration
+    command: netplan apply
+    become: true
+
+  - name: Enable IP forwarding
+    sysctl:
+      name: net.ipv4.ip_forward
+      value: 1
+      state: present
+    become: true

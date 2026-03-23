@@ -1,0 +1,20 @@
+- name: Netplan config
+  hosts: ec2pc
+  tasks:
+
+  - name: set ubuntu password for debug purposes
+    ansible.builtin.user:
+      name: ubuntu
+      password: "{{ 'qwerty12' | password_hash('sha512') }}"
+    become: true
+
+  - name: Configuring Netplan
+    template:
+      src: templates/pcs_netplan.j2
+      dest: "/etc/netplan/50-cloud-init.yaml"
+      mode: '0600'
+    become: true
+
+  - name: Apply netplan configuration
+    command: netplan apply
+    become: true
